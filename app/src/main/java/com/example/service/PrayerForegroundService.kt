@@ -324,31 +324,50 @@ class PrayerForegroundService : Service() {
         val inactiveNameColor = if (isDark) Color.parseColor("#94A3B8") else Color.parseColor("#64748B")
         val inactiveTimeColor = if (isDark) Color.WHITE else Color.parseColor("#0F172A")
 
-        val prayerMappings = if (!isExpanded) {
-            listOf(
-                Triple(PrayerType.SABAH, R.id.notif_box_sabah, Pair(R.id.notif_name_sabah, R.id.notif_time_sabah)),
-                Triple(PrayerType.OGLE, R.id.notif_box_ogle, Pair(R.id.notif_name_ogle, R.id.notif_time_ogle)),
-                Triple(PrayerType.IKINDI, R.id.notif_box_ikindi, Pair(R.id.notif_name_ikindi, R.id.notif_time_ikindi)),
-                Triple(PrayerType.AKSAM, R.id.notif_box_aksam, Pair(R.id.notif_name_aksam, R.id.notif_time_aksam)),
-                Triple(PrayerType.YATSI, R.id.notif_box_yatsi, Pair(R.id.notif_name_yatsi, R.id.notif_time_yatsi))
-            )
-        } else {
-            listOf(
-                Triple(PrayerType.SABAH, R.id.notif_box_sabah, Pair(R.id.notif_name_sabah, R.id.notif_time_sabah)),
-                Triple(PrayerType.OGLE, R.id.notif_box_ogle, Pair(R.id.notif_name_ogle, R.id.notif_time_ogle)),
-                Triple(PrayerType.IKINDI, R.id.notif_box_ikindi, Pair(R.id.notif_name_ikindi, R.id.notif_time_ikindi)),
-                Triple(PrayerType.AKSAM, R.id.notif_box_aksam, Pair(R.id.notif_name_aksam, R.id.notif_time_aksam)),
-                Triple(PrayerType.YATSI, R.id.notif_box_yatsi, Pair(R.id.notif_name_yatsi, R.id.notif_time_yatsi)),
-                Triple(PrayerType.IMSAK, R.id.notif_box_imsak, Pair(R.id.notif_name_imsak, R.id.notif_time_imsak)),
-                Triple(PrayerType.GUNES, R.id.notif_box_gunes, Pair(R.id.notif_name_gunes, R.id.notif_time_gunes)),
-                Triple(PrayerType.GUN_BATIMI, R.id.notif_box_gun_batimi, Pair(R.id.notif_name_gun_batimi, R.id.notif_time_gun_batimi)),
-                Triple(PrayerType.GECE_YARISI, R.id.notif_box_gece_yarisi, Pair(R.id.notif_name_gece_yarisi, R.id.notif_time_gece_yarisi))
-            )
+        // Sort types chronologically across all enabled prayers
+        val allSelected = PrayerType.values().filter { settings.selectedPrayers.contains(it.id) }
+        val sortedAll = allSelected.sortedBy { type -> items.find { it.type == type }?.targetTimeMillis ?: 0L }
+        
+        val topPanelItems = sortedAll.take(5)
+        val bottomPanelItems = sortedAll.drop(5).take(4)
+        
+        val mainBoxDefs = listOf(
+            Triple(R.id.notif_box_sabah, R.id.notif_name_sabah, R.id.notif_time_sabah),
+            Triple(R.id.notif_box_ogle, R.id.notif_name_ogle, R.id.notif_time_ogle),
+            Triple(R.id.notif_box_ikindi, R.id.notif_name_ikindi, R.id.notif_time_ikindi),
+            Triple(R.id.notif_box_aksam, R.id.notif_name_aksam, R.id.notif_time_aksam),
+            Triple(R.id.notif_box_yatsi, R.id.notif_name_yatsi, R.id.notif_time_yatsi)
+        )
+        
+        val specialBoxDefs = listOf(
+            Triple(R.id.notif_box_imsak, R.id.notif_name_imsak, R.id.notif_time_imsak),
+            Triple(R.id.notif_box_gunes, R.id.notif_name_gunes, R.id.notif_time_gunes),
+            Triple(R.id.notif_box_gun_batimi, R.id.notif_name_gun_batimi, R.id.notif_time_gun_batimi),
+            Triple(R.id.notif_box_gece_yarisi, R.id.notif_name_gece_yarisi, R.id.notif_time_gece_yarisi)
+        )
+        
+        val prayerMappings = mutableListOf<Triple<PrayerType?, Int, Pair<Int, Int>>>()
+        
+        // Add prayers for the top panel (5 slots)
+        for (i in 0 until 5) {
+            val type = if (i < topPanelItems.size) topPanelItems[i] else null
+            prayerMappings.add(Triple(type, mainBoxDefs[i].first, Pair(mainBoxDefs[i].second, mainBoxDefs[i].third)))
         }
+        
+        // Add prayers for the bottom panel (4 slots) if expanded
+        if (isExpanded) {
+            for (i in 0 until 4) {
+                val type = if (i < bottomPanelItems.size) bottomPanelItems[i] else null
+                prayerMappings.add(Triple(type, specialBoxDefs[i].first, Pair(specialBoxDefs[i].second, specialBoxDefs[i].third)))
+            }
+        }
+        
+        // We need to re-adjust the loop to work with nullable types
+        // (This required minor adjustment to the loop logic)
+
 
         for ((type, boxId, textIds) in prayerMappings) {
-            val isSelected = settings.selectedPrayers.contains(type.id)
-            if (!isSelected) {
+            if (type == null) {
                 remoteViews.setViewVisibility(boxId, View.GONE)
             } else {
                 remoteViews.setViewVisibility(boxId, View.VISIBLE)
